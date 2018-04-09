@@ -1,1 +1,3 @@
-# java_hello_world
+# Java Pipeline
+
+An example CI/CD Jenkins v2 Pipeline (open source)

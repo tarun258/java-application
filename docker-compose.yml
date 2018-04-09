@@ -1,0 +1,95 @@
+version: '2'
+
+services:
+
+# Conjur Enterprise Edition
+  conjur:
+    image: nfmsjoeg/conjur-appliance:latest
+    hostname: conjur
+    volumes:
+      - ./:/src:z
+      - conjur_logs:/var/log/conjur # exported Conjur audit log
+      - nginx_logs:/var/log/nginx   # exported nginx audit log
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 443:443
+      - 686:686
+      - 5432-5433:5432-5433
+    restart: always
+
+# Conjur CLI
+  cli:
+    environment:
+      CONJUR_ACCOUNT: javapipline
+      CONJUR_APPLIANCE_URL: https://conjur/api
+    image: my-conjurcli:5.4.0
+    build: ./build/conjurcli
+    volumes:
+      - cli_data:/data
+      - ./:/src:z
+      - /var/run/docker.sock:/var/run/docker.sock:rw  # Enables Docker commands from in container
+      - /usr/bin/docker:/usr/bin/docker:z
+    hostname: conjurcli
+    entrypoint: sleep
+    command: infinity
+
+# Jenkins Open Source
+  jenkins:
+    image: jenkins/jenkins:lts-alpine
+    hostname: jenkins
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 8080:8080
+      - 50000:50000
+    restart: always
+
+# Artifactory Open Source
+  artifactory:
+    image: docker.bintray.io/jfrog/artifactory-oss:5.6.1
+    hostname: artifactory
+    ports:
+     - 8081:8081
+    volumes:
+     - artifactory_data:/var/opt/jfrog/artifactory
+#   Add extra Java options by uncommenting the following lines
+#   environment:
+#     - EXTRA_JAVA_OPTIONS=-Xmx4g
+    restart: always
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 32000
+        hard: 40000
+
+# Weavescope for monitoring
+  scope:
+    image: weaveworks/scope:1.6.5
+    privileged: true
+    ports:
+      - 0.0.0.0:4040:4040
+    labels:
+      - works.weave.role=system
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - --probe.docker=true
+    restart: always
+
+# Java Application 'hello'
+  java-app:
+    image: hello:0.1.0
+    build: .
+    hostname: hello
+    entrypoint: sleep
+    command: infinity
+
+# Volumes for persistence
+volumes:
+  conjur_logs:
+  nginx_logs:
+  cli_data:
+  jenkins_home:
+  artifactory_data:
